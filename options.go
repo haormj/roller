@@ -1,90 +1,91 @@
 package roller
 
-import "time"
+import (
+	"fmt"
+	"path"
+	"path/filepath"
+	"strings"
+	"time"
+)
 
 // Options represents optional behavior you can specify for a new Roller.
 type Options struct {
-	FileName           string         `yaml:"filename"`
-	FileMaxAge         Duration       `yaml:"file_max_age"`
-	FileMaxCount       int            `yaml:"file_max_count"`
-	MaxSize            int64          `yaml:"max_size"`
-	RotateStrategy     RotateStrategy `yaml:"rotate_strategy"`
-	FileMaxSize        int64          `yaml:"file_max_size"`
-	Compress           bool           `yaml:"compress"`
-	CompressSuffix     string         `yaml:"compress_suffix"`
-	BackupTimeFormat   string         `yaml:"backup_time_format"`
-	BackupTimeLocation *time.Location `yaml:"backup_time_location"`
+	Filename          string
+	Size              int64
+	Duration          time.Duration
+	RotateName        RotateNameFunc
+	LifecycleGlob     string
+	LifecycleSize     int64
+	LifecycleCount    int64
+	LifecycleDuration time.Duration
 }
 
-// NewOptions create new roller options
-func NewOptions(opt ...Option) Options {
-	opts := Options{
-		BackupTimeFormat:   DefaultBackupTimeFormat,
-		BackupTimeLocation: DefaultBackupTimeLocation,
-		CompressSuffix:     DefaultCompressSuffix,
+type Option func(*Options)
+
+type RotateNameFunc func(string) string
+
+func newOptions(opt ...Option) *Options {
+	options := &Options{
+		RotateName: defaultRotateName,
 	}
 	for _, o := range opt {
-		o(&opts)
+		o(options)
 	}
-	return opts
+	return options
 }
 
-func FileMaxAge(d time.Duration) Option {
+func Filename(n string) Option {
 	return func(o *Options) {
-		o.FileMaxAge = Duration(d)
-	}
-}
-
-func FileMaxCount(c int) Option {
-	return func(o *Options) {
-		o.FileMaxCount = c
+		o.Filename = n
 	}
 }
 
-func Compress(b bool) Option {
+func Size(n int64) Option {
 	return func(o *Options) {
-		o.Compress = b
+		o.Size = n
 	}
 }
 
-func BackupTimeFormat(f string) Option {
+func Duration(d time.Duration) Option {
 	return func(o *Options) {
-		o.BackupTimeFormat = f
+		o.Duration = d
 	}
 }
 
-func CompressSuffix(s string) Option {
+func RotateName(fn RotateNameFunc) Option {
 	return func(o *Options) {
-		o.CompressSuffix = s
+		o.RotateName = fn
 	}
 }
 
-func FileMaxSize(s int64) Option {
+func LifecycleGlob(glob string) Option {
 	return func(o *Options) {
-		o.FileMaxSize = s
+		o.LifecycleGlob = glob
 	}
 }
 
-func FileName(n string) Option {
+func LifecycleSize(s int64) Option {
 	return func(o *Options) {
-		o.FileName = n
+		o.LifecycleSize = s
 	}
 }
 
-func MaxSize(s int64) Option {
+func LifecycleCount(c int64) Option {
 	return func(o *Options) {
-		o.MaxSize = s
+		o.LifecycleCount = c
 	}
 }
 
-func WithRotateStrategy(rs RotateStrategy) Option {
+func LifecycleDuration(d time.Duration) Option {
 	return func(o *Options) {
-		o.RotateStrategy = rs
+		o.LifecycleDuration = d
 	}
 }
 
-func BackupTimeLocation(l *time.Location) Option {
-	return func(o *Options) {
-		o.BackupTimeLocation = l
-	}
+func defaultRotateName(filename string) string {
+	dir := filepath.Dir(filename)
+	ext := filepath.Ext(filename)
+	name := strings.TrimSuffix(filepath.Base(filename), ext)
+
+	return path.Join(dir, fmt.Sprintf("%s_%s%s", name, time.Now().Format("2006-01-02T15:04:05.999Z07:00"), ext))
 }
